@@ -1,7 +1,13 @@
-// stores/auth.js
+// stores
 import { defineStore } from "pinia";
+
+// components
 import axios, { API_ENDPOINTS } from "../api/auth";
+
+// jwt
 import { setSession, isValidToken } from "../utils/jwt";
+
+// ----------------------------------------------------------------------
 
 export const useAuthStore = defineStore("auth", {
   state: () => ({

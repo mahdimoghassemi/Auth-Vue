@@ -12,7 +12,7 @@ import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/auth";
 
 // ICONS
-import { EyeIcon, EyeSlashIcon, ArrowLeftIcon } from "@heroicons/vue/24/solid";
+import { EyeIcon, EyeSlashIcon } from "@heroicons/vue/24/solid";
 
 // ----------------------------------------------------------------------
 
@@ -99,30 +99,11 @@ const onSubmit = handleSubmit(async (values) => {
     loading.value = false;
   }
 });
-
-/**
- * ------------------------------------------------------------------------------------------------
- *  back handler
- * ------------------------------------------------------------------------------------------------
- */
-
-const goBack = () => {
-  router.back();
-};
 </script>
 
 <!-- ---------------------------- main ---------------------------- -->
 
 <template>
-  <button
-    type="button"
-    @click="goBack"
-    class="m-10 text-blue-600 flex items-center text-sm"
-  >
-    <ArrowLeftIcon class="w-4 h-4 mr-1" />
-
-    back
-  </button>
   <div class="w-[100%] min-h-screen flex justify-center items-center">
     <form
       @submit.prevent="onSubmit"
@@ -204,10 +185,7 @@ const goBack = () => {
       </button>
       <div class="flex justify-center items-center mt-4 text-sm">
         <span class="text-gray-600">Don't have an account?</span>
-        <RouterLink
-          to="/auth/signup"
-          class="text-blue-500 ml-1 hover:underline"
-        >
+        <RouterLink to="/signup" class="text-blue-500 ml-1 hover:underline">
           Sign Up
         </RouterLink>
       </div>

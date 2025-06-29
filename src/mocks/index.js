@@ -1,5 +1,9 @@
 import MockAdapter from "axios-mock-adapter";
+
+// components
 import axios, { API_ENDPOINTS } from "../api/auth";
+
+// ----------------------------------------------------------------------
 
 if (import.meta.env.DEV) {
   const mock = new MockAdapter(axios, { delayResponse: 1000 });
@@ -22,6 +26,8 @@ if (import.meta.env.DEV) {
     return [401, { message: "ایمیل یا رمز عبور اشتباه است" }];
   });
 
+  // ----------------------------------------------------------------------
+
   // Mock Login OTP
   mock.onGet(new RegExp(`${API_ENDPOINTS.auth.loginOtp}/*`)).reply((config) => {
     const urlParts = config.url.split("/");
@@ -41,6 +47,8 @@ if (import.meta.env.DEV) {
 
     return [401, { message: "کد تایید اشتباه است" }];
   });
+
+  // ----------------------------------------------------------------------
 
   // Mock Get Me
   mock.onGet(API_ENDPOINTS.auth.me).reply(200, {
@@ -62,5 +70,49 @@ if (import.meta.env.DEV) {
         },
       },
     ];
+  });
+
+  // ----------------------------------------------------------------------
+
+  // Mock Request Reset OTP
+  mock.onPost(API_ENDPOINTS.auth.forgotPasswordRequest).reply((config) => {
+    const { identifier } = JSON.parse(config.data);
+
+    if (identifier) {
+      return [
+        200,
+        {
+          data: {
+            transactionId: "mock-transaction-id-1234",
+          },
+        },
+      ];
+    }
+
+    return [400, { message: "Invalid identifier" }];
+  });
+
+  // ----------------------------------------------------------------------
+
+  // Mock Forget OTP
+  mock.onPost(API_ENDPOINTS.auth.forgotPasswordVerifyOtp).reply((config) => {
+    const { otp } = JSON.parse(config.data);
+
+    if (otp === "123456") {
+      return [200, { data: { success: true } }];
+    }
+
+    return [401, { message: "Invalid OTP code" }];
+  });
+
+  // Mock Change Password
+  mock.onPost(API_ENDPOINTS.auth.forgotPasswordReset).reply((config) => {
+    const { password } = JSON.parse(config.data);
+
+    if (password && password.length >= 6) {
+      return [200, { data: { success: true } }];
+    }
+
+    return [400, { message: "Password too short" }];
   });
 }
