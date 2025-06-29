@@ -25,8 +25,8 @@ const router = useRouter();
  */
 
 const step = ref(1);
-const errorMsg = ref("");
 const loading = ref(false);
+const errorMsg = ref("");
 const resendTimer = ref(120);
 const transactionId = ref("");
 const identifierValue = ref("");
@@ -43,14 +43,17 @@ const canResend = computed(() => resendTimer.value === 0);
  */
 
 const schemaStep1 = yup.object({
-  identifier: yup
+  name: yup.string().required("Name is required"),
+  email: yup.string().email().required("Email is required"),
+  phone: yup
     .string()
-    .required("Email or phone is required")
-    .test("is-email-or-phone", "Invalid email or phone", (value) => {
-      const phoneRegex = /^\+?\d{10,14}$/;
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      return phoneRegex.test(value) || emailRegex.test(value);
-    }),
+    .required("Phone is required")
+    .matches(/^\+?\d{10,14}$/, "Invalid phone number"),
+  password: yup.string().min(6).required("Password is required"),
+  passwordConfirm: yup
+    .string()
+    .oneOf([yup.ref("password")], "Passwords must match")
+    .required("Confirm password is required"),
 });
 
 const schemaStep2 = yup.object({
@@ -60,16 +63,7 @@ const schemaStep2 = yup.object({
     .required("OTP is required"),
 });
 
-const schemaStep3 = yup.object({
-  password: yup
-    .string()
-    .min(6, "Password min 6 chars")
-    .required("Password is required"),
-  passwordConfirm: yup
-    .string()
-    .oneOf([yup.ref("password")], "Passwords must match")
-    .required("Confirm password is required"),
-});
+const schema = computed(() => (step.value === 1 ? schemaStep1 : schemaStep2));
 
 /**
  * ------------------------------------------------------------------------------------------------
@@ -77,24 +71,19 @@ const schemaStep3 = yup.object({
  * ------------------------------------------------------------------------------------------------
  */
 
-const schema = computed(() => {
-  if (step.value === 1) return schemaStep1;
-  if (step.value === 2) return schemaStep2;
-  return schemaStep3;
-});
-
 const { handleSubmit, resetForm } = useForm({
   validationSchema: schema,
   validateOnMount: false,
   validateOnInput: false,
 });
 
-const { value: identifier, errorMessage: errorIdentifier } =
-  useField("identifier");
-const { value: otp, errorMessage: errorOtp } = useField("otp");
+const { value: name, errorMessage: errorName } = useField("name");
+const { value: email, errorMessage: errorEmail } = useField("email");
+const { value: phone, errorMessage: errorPhone } = useField("phone");
 const { value: password, errorMessage: errorPassword } = useField("password");
 const { value: passwordConfirm, errorMessage: errorPasswordConfirm } =
   useField("passwordConfirm");
+const { value: otp, errorMessage: errorOtp } = useField("otp");
 
 /**
  * ------------------------------------------------------------------------------------------------
@@ -105,39 +94,33 @@ const { value: passwordConfirm, errorMessage: errorPasswordConfirm } =
 const onSubmit = handleSubmit(async (values) => {
   loading.value = true;
   errorMsg.value = "";
-
   try {
     if (step.value === 1) {
-      const res = await axios.post(API_ENDPOINTS.auth.forgotPasswordRequest, {
-        identifier: values.identifier,
-      });
-
-      transactionId.value = res.data.data.transactionId;
-      identifierValue.value = values.identifier;
-      step.value = 2;
-      resetForm();
-    } else if (step.value === 2) {
-      await axios.post(API_ENDPOINTS.auth.forgotPasswordVerifyOtp, {
-        identifier: identifierValue.value,
-        transactionId: transactionId.value,
-        otp: values.otp,
-      });
-
-      step.value = 3;
-      resetForm();
-    } else {
-      await axios.post(API_ENDPOINTS.auth.forgotPasswordReset, {
-        identifier: identifierValue.value,
-        transactionId: transactionId.value,
+      const res = await axios.post(API_ENDPOINTS.auth.signup, {
+        name: values.name,
+        email: values.email,
+        phone: values.phone,
         password: values.password,
       });
 
-      alert("Password successfully changed!");
+      transactionId.value = res.data.data.transactionId;
+      identifierValue.value = values.email;
+      step.value = 2;
+      resetForm();
+    } else {
+      // Submit OTP for verification
+      await axios.post(API_ENDPOINTS.auth.verifySignupOtp, {
+        email: identifierValue.value,
+        otp: values.otp,
+        transactionId: transactionId.value,
+      });
+
+      alert("Registration successful!");
       router.replace("/login");
     }
   } catch (err) {
     errorMsg.value =
-      err.response?.data?.message || err.message || "Error occurred";
+      err.response?.data?.message || err.message || "Something went wrong";
   } finally {
     loading.value = false;
   }
@@ -152,45 +135,31 @@ const onSubmit = handleSubmit(async (values) => {
 const startTimer = () => {
   resendTimer.value = 120;
   intervalId = setInterval(() => {
-    if (resendTimer.value > 0) {
-      resendTimer.value--;
-    } else {
-      clearInterval(intervalId);
-    }
+    if (resendTimer.value > 0) resendTimer.value--;
+    else clearInterval(intervalId);
   }, 1000);
 };
 
 watch(
   () => step.value,
   (newStep) => {
-    if (newStep === 2) {
-      startTimer();
-    } else {
-      clearInterval(intervalId);
-    }
+    if (newStep === 2) startTimer();
+    else clearInterval(intervalId);
   }
 );
 
-onUnmounted(() => {
-  clearInterval(intervalId);
-});
+onUnmounted(() => clearInterval(intervalId));
 
 const resendOtp = async () => {
   if (!canResend.value) return;
-
   loading.value = true;
-  errorMsg.value = "";
-
   try {
-    await axios.post(API_ENDPOINTS.auth.forgotPasswordRequest, {
-      identifier: identifierValue.value,
+    await axios.post(API_ENDPOINTS.auth.signup, {
+      email: identifierValue.value,
     });
-
-    resendTimer.value = 120;
     startTimer();
   } catch (err) {
-    errorMsg.value =
-      err.response?.data?.message || err.message || "Error occurred";
+    errorMsg.value = err.response?.data?.message || "Failed to resend OTP";
   } finally {
     loading.value = false;
   }
@@ -200,55 +169,56 @@ const resendOtp = async () => {
 <!-- ---------------------------- main ---------------------------- -->
 
 <template>
-  <div class="w-[100%] min-h-screen flex justify-center items-center">
+  <div class="w-full min-h-screen flex justify-center items-center">
     <div class="shadow-2xl p-8 rounded-lg w-full max-w-md bg-white">
-      <h2 class="text-xl font-semibold mb-6">Forgot Password</h2>
+      <h2 class="text-xl font-semibold mb-6">Sign Up</h2>
 
       <form @submit.prevent="onSubmit" class="space-y-6">
-        <div v-if="step === 1">
-          <label class="block mb-1 font-medium">Email or Phone</label>
-          <input
-            v-model="identifier"
-            type="text"
-            class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter email or phone"
-          />
-          <p v-if="errorIdentifier" class="text-red-500 text-sm mt-1">
-            {{ errorIdentifier }}
-          </p>
-        </div>
+        <template v-if="step === 1">
+          <div>
+            <label class="block mb-1 font-medium">Name</label>
+            <input
+              v-model="name"
+              type="text"
+              class="input"
+              placeholder="Enter your name"
+            />
+            <p v-if="errorName" class="text-red-500 text-sm">{{ errorName }}</p>
+          </div>
 
-        <div v-else-if="step === 2">
-          <label class="block mb-1 font-medium">OTP Code</label>
-          <input
-            v-model="otp"
-            maxlength="6"
-            type="text"
-            class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter 6-digit OTP"
-          />
-          <p v-if="errorOtp" class="text-red-500 text-sm mt-1">
-            {{ errorOtp }}
-          </p>
+          <div>
+            <label class="block mb-1 font-medium">Email</label>
+            <input
+              v-model="email"
+              type="email"
+              class="input"
+              placeholder="Enter your email"
+            />
+            <p v-if="errorEmail" class="text-red-500 text-sm">
+              {{ errorEmail }}
+            </p>
+          </div>
 
-          <button
-            type="button"
-            :disabled="!canResend || loading"
-            @click="resendOtp"
-            class="mt-4 px-2 py-2 rounded-md bg-blue-600 text-white disabled:bg-gray-400 hover:bg-blue-700 transition"
-          >
-            resend OTP
-            <span v-if="!canResend"> ({{ resendTimer }})</span>
-          </button>
-        </div>
-        <div v-else>
-          <label class="block mb-1 font-medium">New Password</label>
+          <div>
+            <label class="block mb-1 font-medium">Phone</label>
+            <input
+              v-model="phone"
+              type="text"
+              class="input"
+              placeholder="Enter phone number"
+            />
+            <p v-if="errorPhone" class="text-red-500 text-sm">
+              {{ errorPhone }}
+            </p>
+          </div>
+
           <div class="relative">
+            <label class="block mb-1 font-medium">Password</label>
             <input
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
-              class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="New password"
+              class="input"
+              placeholder="Password"
             />
             <button
               type="button"
@@ -260,18 +230,18 @@ const resendOtp = async () => {
                 class="w-5 h-5 text-gray-500"
               />
             </button>
+            <p v-if="errorPassword" class="text-red-500 text-sm">
+              {{ errorPassword }}
+            </p>
           </div>
-          <p v-if="errorPassword" class="text-red-500 text-sm mt-1">
-            {{ errorPassword }}
-          </p>
 
-          <label class="block mt-4 mb-1 font-medium">Confirm Password</label>
           <div class="relative">
+            <label class="block mb-1 font-medium">Confirm Password</label>
             <input
               v-model="passwordConfirm"
               :type="showPasswordConfirm ? 'text' : 'password'"
-              class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Confirm new password"
+              class="input"
+              placeholder="Confirm Password"
             />
             <button
               type="button"
@@ -283,14 +253,35 @@ const resendOtp = async () => {
                 class="w-5 h-5 text-gray-500"
               />
             </button>
+            <p v-if="errorPasswordConfirm" class="text-red-500 text-sm">
+              {{ errorPasswordConfirm }}
+            </p>
           </div>
-          <p v-if="errorPasswordConfirm" class="text-red-500 text-sm mt-1">
-            {{ errorPasswordConfirm }}
-          </p>
-        </div>
-        <span v-if="errorMsg" class="text-red-500 text-sm mt-2">{{
-          errorMsg
-        }}</span>
+        </template>
+
+        <template v-else>
+          <label class="block mb-1 font-medium">OTP</label>
+          <input
+            v-model="otp"
+            maxlength="6"
+            type="text"
+            class="input"
+            placeholder="Enter 6-digit OTP"
+          />
+          <p v-if="errorOtp" class="text-red-500 text-sm">{{ errorOtp }}</p>
+
+          <button
+            type="button"
+            :disabled="!canResend || loading"
+            @click="resendOtp"
+            class="mt-2 px-3 py-2 rounded bg-blue-600 text-white disabled:bg-gray-400"
+          >
+            Resend OTP
+            <span v-if="!canResend"> ({{ resendTimer }}s)</span>
+          </button>
+        </template>
+
+        <span v-if="errorMsg" class="text-red-500 text-sm">{{ errorMsg }}</span>
 
         <div class="mt-4 text-sm">
           <span class="text-gray-600">Back to Login?</span>
@@ -302,20 +293,18 @@ const resendOtp = async () => {
         <button
           type="submit"
           :disabled="loading"
-          class="w-full bg-blue-600 text-white py-2 rounded-3xl hover:bg-blue-700 transition duration-300 mt-4"
+          class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
         >
           <span v-if="loading">Loading...</span>
-          <span v-else>
-            {{
-              step === 1
-                ? "Send OTP"
-                : step === 2
-                ? "Verify OTP"
-                : "Reset Password"
-            }}
-          </span>
+          <span v-else>{{ step === 1 ? "Sign Up" : "Verify OTP" }}</span>
         </button>
       </form>
     </div>
   </div>
 </template>
+
+<style scoped>
+.input {
+  @apply w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500;
+}
+</style>

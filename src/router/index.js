@@ -1,8 +1,8 @@
 import { createRouter, createWebHistory } from "vue-router";
 
 // components
-import OtpView from "../views/OtpView.vue";
 import LoginView from "../views/LoginView.vue";
+import SignupView from "../views/SignupView.vue";
 import ForgotView from "../views/ForgotView.vue";
 import DashboardView from "../views/DashboardView.vue";
 
@@ -18,12 +18,12 @@ const routes = [
     component: LoginView,
   },
   {
-    path: "/otp",
-    component: OtpView,
-  },
-  {
     path: "/forgot",
     component: ForgotView,
+  },
+  {
+    path: "/signup",
+    component: SignupView,
   },
   {
     path: "/dashboard",

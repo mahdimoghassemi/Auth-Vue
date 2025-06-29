@@ -115,4 +115,41 @@ if (import.meta.env.DEV) {
 
     return [400, { message: "Password too short" }];
   });
+
+  // Mock Signup Request
+
+  mock.onPost(API_ENDPOINTS.auth.signupRequest).reply((config) => {
+    const { fullName, email, phone, password } = JSON.parse(config.data);
+
+    if (fullName && email && phone && password.length >= 6) {
+      return [
+        200,
+        {
+          data: {
+            transactionId: "mock-signup-transaction-id",
+          },
+        },
+      ];
+    }
+
+    return [400, { message: "اطلاعات نامعتبر است" }];
+  });
+
+  // Mock Signup OTP
+  mock.onPost(API_ENDPOINTS.auth.signupVerify).reply((config) => {
+    const { otp, transactionId } = JSON.parse(config.data);
+
+    if (otp === "123456" && transactionId === "mock-signup-transaction-id") {
+      return [
+        200,
+        {
+          data: {
+            token: "signed-up-user-token",
+          },
+        },
+      ];
+    }
+
+    return [401, { message: "کد تایید اشتباه است" }];
+  });
 }
