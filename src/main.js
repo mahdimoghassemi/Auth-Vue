@@ -6,9 +6,18 @@ import router from "./router";
 // components
 import App from "./App.vue";
 
+// store
+import { createPinia } from "pinia";
+
 // styles
 import "./style.css";
 
 // ----------------------------------------------------------------------
 
-createApp(App).use(router).mount("#app");
+if (import.meta.env.DEV) {
+  import("./mocks");
+}
+
+const pinia = createPinia();
+
+createApp(App).use(router).use(pinia).mount("#app");

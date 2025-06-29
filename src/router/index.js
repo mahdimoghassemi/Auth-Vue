@@ -4,6 +4,7 @@ import { createRouter, createWebHistory } from "vue-router";
 import OtpView from "../views/OtpView.vue";
 import LoginView from "../views/LoginView.vue";
 import ForgotView from "../views/ForgotView.vue";
+import DashboardView from "../views/DashboardView.vue";
 
 // ----------------------------------------------------------------------
 
@@ -23,6 +24,10 @@ const routes = [
   {
     path: "/forgot",
     component: ForgotView,
+  },
+  {
+    path: "/dashboard",
+    component: DashboardView,
   },
 ];
 
